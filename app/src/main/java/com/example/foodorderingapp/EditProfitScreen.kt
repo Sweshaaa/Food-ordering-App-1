@@ -1,81 +1,99 @@
-package com.example.foodorderingapp
 
-import android.R.id.message
+
+
+package com.example.foodorderingapp.ui.screens
+
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 
 @Composable
-fun EditProfileScreen(navController: NavHostController) {
-    val user = UserRepository.currentUser ?: return
+fun EditProfileScreen(
+    onBackClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val user = FirebaseAuth.getInstance().currentUser
 
-    var email by remember { mutableStateOf(user.email) }
-    var password by remember { mutableStateOf(user.password) }
-
+    var displayName by remember { mutableStateOf(user?.displayName ?: "") }
+    val email = user?.email ?: ""
+    var message by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Edit Profile", style = MaterialTheme.typography.headlineMedium)
-
+        Text("Edit Profile", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = displayName,
+            onValueChange = {
+                displayName = it
+                message = null
+            },
+            label = { Text("Display Name") },
+            modifier = Modifier.fillMaxWidth()
+        )
 
         OutlinedTextField(
             value = email,
-            onValueChange = {
-                val it = null
-                email = it
-            },
+            onValueChange = {},
             label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = false // Prevent email editing here
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = {
-                UserRepository.updateUser(email, password)
-                message = "Profile updated"
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Save Changes")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Button(
-            onClick = {
-                UserRepository.logout()
-                navController.navigate("login") {
-                    popUpTo("edit_profile") { inclusive = true }
+                if (displayName.isBlank()) {
+                    message = "Display name cannot be empty"
+                    return@Button
                 }
+
+                isLoading = true
+                val updates = UserProfileChangeRequest.Builder()
+                    .setDisplayName(displayName)
+                    .build()
+
+                user?.updateProfile(updates)
+                    ?.addOnCompleteListener { task ->
+                        isLoading = false
+                        if (task.isSuccessful) {
+                            message = "Profile updated successfully"
+                            Toast.makeText(context, "Profile updated", Toast.LENGTH_SHORT).show()
+                        } else {
+                            message = task.exception?.message ?: "Update failed"
+                        }
+                    }
             },
+            enabled = !isLoading,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Logout")
+            Text(if (isLoading) "Updating..." else "Save Changes")
         }
 
-        if (message.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(message)
+        message?.let {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = it, color = MaterialTheme.colorScheme.primary)
+        }
+
+        TextButton(
+            onClick = { onBackClick() },
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Text("Back")
         }
     }
 }
-
-

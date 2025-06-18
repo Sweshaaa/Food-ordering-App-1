@@ -1,86 +1,97 @@
-package com.example.foodorderingapp
+package com.example.foodorderingapp.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
-fun LoginScreen(navController: NavHostController) {
+fun LoginScreen(
+    onLoginSuccess: () -> Unit,
+    onForgotPasswordClick: () -> Unit,
+    onRegisterClick: () -> Unit // Optional for future use
+) {
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier
+        Modifier
             .fillMaxSize()
             .padding(24.dp),
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "Login",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
+        Text("Login", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(16.dp))
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                error = null
+            },
             label = { Text("Email") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
+            modifier = Modifier.fillMaxWidth()
         )
 
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                error = null
+            },
             label = { Text("Password") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
+            modifier = Modifier.fillMaxWidth()
         )
 
-        if (errorMessage.isNotEmpty()) {
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+        error?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
         }
+
+        Spacer(Modifier.height(24.dp))
 
         Button(
             onClick = {
-                val user = UserRepository.login(email, password)
-                if (user != null) {
-                    navController.navigate("edit_profile")
-                } else {
-                    errorMessage = "Invalid email or password"
+                if (email.isBlank() || password.isBlank()) {
+                    error = "Please enter email and password"
+                    return@Button
                 }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-        ) {
-            Text("Login")
-        }
 
-        TextButton(
-            onClick = { navController.navigate("forgot_password") },
+                loading = true
+                auth.signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { task ->
+                        loading = false
+                        if (task.isSuccessful) {
+                            Toast.makeText(context, "Logged in!", Toast.LENGTH_SHORT).show()
+                            onLoginSuccess()
+                        } else {
+                            error = task.exception?.message
+                        }
+                    }
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
+            Text(if (loading) "Logging in..." else "Login")
+        }
+
+        TextButton(onClick = { onForgotPasswordClick() }) {
             Text("Forgot Password?")
         }
 
-        TextButton(
-            onClick = { navController.navigate("register") },
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        TextButton(onClick = { onRegisterClick() }) {
             Text("Don't have an account? Register")
         }
     }
 }
+
 
 
