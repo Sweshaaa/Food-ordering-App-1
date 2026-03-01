@@ -1,4 +1,3 @@
-
 package com.example.foodorderingapp.ui.screens
 
 import android.util.Patterns
